@@ -219,6 +219,14 @@ extern NSString *const kAppiraterReminderRequestDate;
 + (void) setTimeBeforeReminding:(double)value;
 
 /*
+ If you update your app frequently, you may not want users to see the alert with every
+ version update. This sets a minimum time (in days) between ratings. So if I rate an app or
+ opt out, and I upgrade before then, don't show an alert until that time has passed.
+ – Defaults to 0, in order to keep parity with past versions of Appirater.
+ */
++(void)setMinimumTimeBetweenRatings:(double)value;
+
+/*
  'YES' will show the Appirater alert everytime. Useful for testing how your message
  looks and making sure the link to your app's review page works.
  */
@@ -251,5 +259,15 @@ extern NSString *const kAppiraterReminderRequestDate;
  Calls [Appirater appLaunched:YES]. See appLaunched: for details of functionality.
  */
 + (void)appLaunched __attribute__((deprecated)); 
+
+@end
+
+
+@interface Appirater (Appirater_Tests)
+
+/*
+ Tests the minimum time between ratings.
+ */
++(void)runTests;
 
 @end

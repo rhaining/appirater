@@ -49,6 +49,7 @@ NSString *const kAppiraterCurrentVersion			= @"kAppiraterCurrentVersion";
 NSString *const kAppiraterRatedCurrentVersion		= @"kAppiraterRatedCurrentVersion";
 NSString *const kAppiraterDeclinedToRate			= @"kAppiraterDeclinedToRate";
 NSString *const kAppiraterReminderRequestDate		= @"kAppiraterReminderRequestDate";
+NSString *const kAppiraterLastRatingDate			= @"kAppiraterLastRatingDate";
 
 NSString *templateReviewURL = @"itms-apps://ax.itunes.apple.com/WebObjects/MZStore.woa/wa/viewContentsUserReviews?type=Purple+Software&id=APP_ID";
 
@@ -57,6 +58,7 @@ static double _daysUntilPrompt = 30;
 static NSInteger _usesUntilPrompt = 20;
 static NSInteger _significantEventsUntilPrompt = -1;
 static double _timeBeforeReminding = 1;
+static double _minimumTimeBetweenRatings = 0;
 static BOOL _debug = NO;
 static id<AppiraterDelegate> _delegate;
 static BOOL _usesAnimation = TRUE;
@@ -95,6 +97,10 @@ static BOOL _modalOpen = false;
 
 + (void) setTimeBeforeReminding:(double)value {
     _timeBeforeReminding = value;
+}
+
++(void)setMinimumTimeBetweenRatings:(double)value{
+	_minimumTimeBetweenRatings = value;
 }
 
 + (void) setDebug:(BOOL)debug {
@@ -213,6 +219,20 @@ static BOOL _modalOpen = false;
 	NSTimeInterval timeUntilReminder = 60 * 60 * 24 * _timeBeforeReminding;
 	if (timeSinceReminderRequest < timeUntilReminder)
 		return NO;
+	
+	// if minimum time is set, have we surpassed that since the last rating?
+	if(_minimumTimeBetweenRatings > 0){
+		NSTimeInterval lastRatingTime = [userDefaults doubleForKey:kAppiraterLastRatingDate];
+		if(lastRatingTime > 0){
+			NSDate *lastRatingDate = [NSDate dateWithTimeIntervalSince1970:lastRatingTime];
+			if(lastRatingDate){
+				NSTimeInterval timeSinceLastRating = [[NSDate date] timeIntervalSinceDate:lastRatingDate];
+				NSTimeInterval timeUntilNextRating = 60 * 60 * 24 * _minimumTimeBetweenRatings;
+				if (timeSinceLastRating < timeUntilNextRating)
+					return NO;
+			}
+		}
+	}
 	
 	return YES;
 }
@@ -437,6 +457,8 @@ static BOOL _modalOpen = false;
 	
 	NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
 	[userDefaults setBool:YES forKey:kAppiraterRatedCurrentVersion];
+	double timeInterval = [[NSDate date] timeIntervalSince1970];
+	[userDefaults setDouble:timeInterval forKey:kAppiraterLastRatingDate];
 	[userDefaults synchronize];
 
 	//Use the in-app StoreKit view if available (iOS 6) and imported. This works in the simulator.
@@ -529,3 +551,37 @@ static BOOL _modalOpen = false;
 }
 
 @end
+
+
+@implementation Appirater (Appirater_Tests)
+
++(void)runTests{
+	NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+	
+	NSDate *date = [NSDate dateWithTimeIntervalSinceNow:-_daysUntilPrompt*24*60*60*2];
+	[userDefaults setDouble:[date timeIntervalSince1970] forKey:kAppiraterFirstUseDate];
+	[userDefaults setInteger:_usesUntilPrompt forKey:kAppiraterUseCount];
+	[userDefaults setInteger:_significantEventsUntilPrompt+1 forKey:kAppiraterSignificantEventCount];
+	[userDefaults setBool:NO forKey:kAppiraterRatedCurrentVersion];
+	[userDefaults setBool:NO forKey:kAppiraterDeclinedToRate];
+	[userDefaults setDouble:0 forKey:kAppiraterReminderRequestDate];
+	[userDefaults synchronize];
+
+	[self runMinimumTimeTests];
+}
+
++(void)runMinimumTimeTests{
+	NSTimeInterval thirtyDaysAgo = 60 * 60 * 24 * 30;
+	NSTimeInterval ninetyDaysAgo = 3 * thirtyDaysAgo + 5;
+	[self runMinimumTimeTest:ninetyDaysAgo];
+}
+
++(void)runMinimumTimeTest:(NSTimeInterval)timeInterval{
+	NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+	NSDate *date = [NSDate dateWithTimeIntervalSinceNow:-timeInterval];
+	[userDefaults setDouble:[date timeIntervalSince1970] forKey:kAppiraterLastRatingDate];
+	[userDefaults synchronize];
+}
+
+@end
+
