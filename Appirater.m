@@ -60,7 +60,11 @@ static NSInteger _significantEventsUntilPrompt = -1;
 static double _timeBeforeReminding = 1;
 static double _minimumTimeBetweenRatings = 0;
 static BOOL _debug = NO;
-static id<AppiraterDelegate> _delegate;
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_5_0
+	static id<AppiraterDelegate> _delegate;
+#else
+	__weak static id<AppiraterDelegate> _delegate;
+#endif
 static BOOL _usesAnimation = TRUE;
 static BOOL _openInAppStore = NO;
 static UIStatusBarStyle _statusBarStyle;
